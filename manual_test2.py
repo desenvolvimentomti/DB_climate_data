@@ -62,3 +62,4 @@ if __name__ == "__main__":
     print("Teste concluído. Verifique os logs para detalhes.")
 
     # now to use open-meteo . the weather Forecast API
+    # teste de envio do projeto para um repositório proprietátio do MTI 
