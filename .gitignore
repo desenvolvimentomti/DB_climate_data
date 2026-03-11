@@ -33,6 +33,11 @@ data/*.shx
 
 data/sicar/
 temp/
+
+
+# data/sicar/
+# temp/
+
 outputs/
 climate_output/
 processed_climate/

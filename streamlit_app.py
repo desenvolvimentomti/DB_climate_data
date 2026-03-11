@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv() # Carrega as chaves do .env
 # ----
-
+import time
 import folium
 from streamlit_folium import st_folium
 
@@ -141,6 +141,35 @@ if module == "Input":
             if ok:
                 st.success("A API recebeu o pedido e está processando os dados no S3!")
                 st.json(result)
+                
+                # 2. Cria placeholders para atualização dinâmica
+                status_container = st.empty()
+                progress_bar = st.progress(0)
+                # 3. Loop de monitoramento (Polling)
+                finished = False
+                while not finished:
+                    # Consulta o novo endpoint /status/{state}
+                    status_data, status_ok = get_or_fallback(f"/geo/status/{selected_state}")
+                    
+                    if status_ok:
+                        prog = status_data.get("progress", 0)
+                        stat = status_data.get("status", "idle")
+                        
+                        # Atualiza a interface
+                        progress_bar.progress(prog)
+                        status_container.info(f"Status: **{stat.upper()}** ({prog}%)")
+                        
+                        if stat in ["completed", "failed"]:
+                            finished = True
+                            if stat == "completed":
+                                st.success("Processamento finalizado com sucesso!")
+                            else:
+                                st.error(f"Erro no processamento: {status_data.get('error')}")
+                    
+                    time.sleep(2) # Aguarda 2 segundos antes da próxima consulta
+
+
+
             else:
                 st.error("Falha ao comunicar com a API de processamento.")
 
@@ -244,10 +273,31 @@ if module == "ETL":
     
     # Sub-header conforme solicitado
     st.subheader("SICAR/info/extract")
+
+
+    # Seguindo exatamente as suas instruções de nomes de variáveis
+    sicar_info_map = {
+        "Área do Imóvel": "AREA_PROPERTY",
+        "Áreas de Preservação Permanente (APP)": "APPS",
+        "Vegetação Nativa": "NATIVE_VEGETATION",
+        "Área Consolidada": "CONSOLIDATED_AREA",
+        "Área de Pousio": "AREA_FALL",
+        "Hidrografia": "HYDROGRAPHY",
+        "Uso Restrito": "RESTRICTED_USE",
+        "Servidão Administrativa": "ADMINISTRATIVE_SERVICE",
+        "Reserva Legal": "LEGAL_RESERVE"
+    }
     
     # Opções baseadas no Polygon Enum do SICAR
-    info_options = ["AREA_CONSOLIDADA","CONSOLIDATED_AREA", "RESERVA_LEGAL", "AREA_IMOVEL", "VEGETACAO_NATIVA"]
-    selected_info = st.selectbox("Selecione o tipo de dado", info_options)
+    # 2. Exibição das opções em Português no selectbox
+    selected_label = st.selectbox("Selecione o tipo de dado", list(sicar_info_map.keys()))
+    # 3. Atribuição do valor em Inglês para a variável selected_info
+    selected_info = sicar_info_map[selected_label]
+    # Exibição para o desenvolvedor confirmar (opcional)
+    st.caption(f"Valor interno a ser enviado: `{selected_info}`")
+
+    #info_options = ["AREA_CONSOLIDADA", "RESERVA_LEGAL", "AREA_IMOVEL", "VEGETACAO_NATIVA"]
+    #selected_info = st.selectbox("Selecione o tipo de dado", info_options)
     
     if st.button("Executar Extração SICAR"):
         # selected_state vem do seletor global que criamos anteriormente
@@ -257,6 +307,36 @@ if module == "ETL":
         if ok:
             st.success(f"Extração de {selected_info} para {selected_state} enviada para a fila.")
             st.json(result)
+
+            status_container = st.empty()
+            progress_bar = st.progress(0)
+            
+            # 2. Loop de monitoramento em tempo real
+            finished = False
+            while not finished:
+                # Consulta o status específico da tarefa ETL
+                status_url = f"/etl/status/{selected_state}/{selected_info}"
+                status_data, s_ok = get_or_fallback(status_url)
+                
+                if s_ok:
+                    prog = status_data.get("progress", 0)
+                    stat = status_data.get("status", "idle")
+                    
+                    progress_bar.progress(prog)
+                    status_container.warning(f"Tarefa: {selected_info} | Status: {stat.upper()}...")
+                    
+                    if stat in ["completed", "failed"]:
+                        finished = True
+                        if stat == "completed":
+                            status_container.success(f"✅ Extração de {selected_state} concluída e salva no S3!")
+                        else:
+                            st.error(f"Erro: {status_data.get('error')}")
+                
+                time.sleep(3) # O download é lento, então verificamos a cada 3 segundos
+        else:
+            st.error("Não foi possível iniciar a extração.")
+
+
 
 if module == "ETL":
     st.header("ETL — Sentinel / LULC / IBGE PAM / Climate")
