@@ -116,3 +116,12 @@ class ClimateProcessParams(BaseModel):
     era5_raw_files: List[str]
     openmeteo_file: str
     output_folder: str
+
+
+class SICARS3ProcessParams(BaseModel):
+    s3_path: str  # Ex: SICAR_data/AC/CONSOLIDATED_AREA.zip
+    state: str    # Ex: AC
+
+class SICARExtractParams(BaseModel):
+    state: str  # Ex: "AC", "SP"
+    info: str   # Ex: "AREA_CONSOLIDADA", "RESERVA_LEGAL"

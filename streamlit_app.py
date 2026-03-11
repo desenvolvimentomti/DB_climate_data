@@ -1,8 +1,20 @@
+import os
+
 import streamlit as st
 import json
 import httpx
 import pandas as pd
 from pathlib import Path
+# ---changes to use S3 bucket---
+
+import boto3
+from dotenv import load_dotenv
+
+load_dotenv() # Carrega as chaves do .env
+# ----
+
+import folium
+from streamlit_folium import st_folium
 
 BASE_URL = "http://127.0.0.1:8000"
 DATA_DIR = Path(__file__).parent / "data"
@@ -25,6 +37,13 @@ st.title("Geospatial Data Analysis — Frontend")
 
 st.sidebar.title("Controls")
 module = st.sidebar.selectbox("Module", ["Input", "Preprocessing", "ETL", "Analysis", "Report"]) 
+
+# Filtro de Estados Brasileiros
+BR_STATES = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", 
+             "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+
+st.sidebar.markdown("---")
+selected_state = st.sidebar.selectbox("Filter by Brazilian State", BR_STATES)
 
 # Helper: load default files
 @st.cache_data
@@ -64,19 +83,98 @@ def get_or_fallback(path, params=None):
 # UI for Input module
 if module == "Input":
     st.header("Input — AOI / Authentication / Downloads")
+    
+
+    # --- Nova Seção de Filtro S3 ---
+    st.subheader(f"S3 Data Explorer - State: {selected_state}")
+    
+    def list_s3_contents(state):
+        try:
+            s3 = boto3.client('s3')
+            bucket = os.getenv('AWS_S3_BUCKET')
+
+            # Ajuste do Prefixo para o seu caminho específico
+            # Resultado esperado: "SICAR_data/AC/"
+            custom_prefix = f"SICAR_data/{state}/"
+            # Busca arquivos que começam com a sigla do estado (ex: "SP/")
+            response = s3.list_objects_v2(Bucket=bucket, Prefix=custom_prefix  )
+            
+            if 'Contents' in response:
+                return [obj['Key'] for obj in response['Contents']]
+            return []
+        except Exception as e:
+            return [f"Error connecting to S3: {str(e)}"]
+
+    s3_files = list_s3_contents(selected_state)
+    
+    if s3_files:
+        selected_file = st.selectbox(
+            "Select file from S3 bucket", 
+            s3_files,
+            format_func=lambda x: x.replace(f"SICAR_data/{selected_state}/", "")
+            )
+        st.info(f"Ready to process: {selected_file}")
+    else:
+        st.warning(f"No data found in S3 for state {selected_state}")
+    
+    st.markdown("---")
+
+    
+    # 1. Initialize 'aoi' as None so it always exists in this scope
+    aoi = None
+
+
+    # preprocessing the s3 data to show 
+
+    # UI for Preprocessing, acording to the state
+    if module == "Input" and s3_files:
+        if st.button("🚀 Processar ZIP do S3 via API"):
+            # selected_file contém o caminho como 'SICAR_data/AC/CONSOLIDATED_AREA.zip'
+            params = {
+                "s3_path": selected_file, 
+                "state": selected_state
+            }
+            
+            # Chama o novo endpoint da API
+            result, ok = post_or_fallback("/geo/process-sicar-s3", json_data=params)
+            
+            if ok:
+                st.success("A API recebeu o pedido e está processando os dados no S3!")
+                st.json(result)
+            else:
+                st.error("Falha ao comunicar com a API de processamento.")
+
     st.subheader("AOI Upload")
     uploaded = st.file_uploader("Upload AOI (GeoJSON / Shapefile zip)", type=["geojson", "zip"], key="aoi")
+
     if uploaded is None:
         st.info("No file uploaded — using default sample AOI")
-        aoi = load_default_aoi()
-        st.json(aoi)
+        try: 
+
+            aoi = load_default_aoi()
+        except Exception as e:
+            st.error(f"Could not load default AOI: {e}")
     else:
+
+        #st.json(aoi)
+        #else:
         st.write("Uploaded file:", uploaded.name)
         if uploaded.type == "application/json" or uploaded.name.endswith("geojson"):
             aoi = json.load(uploaded)
             st.json(aoi)
         else:
             st.write("File saved to /tmp for processing by API")
+
+    # 2. Only attempt to use 'aoi' if it was successfully defined
+    if aoi:
+        st.subheader("Map Visualization (Leaflet)")
+        m = folium.Map(location=[-15.78, -47.93], zoom_start=4)
+        folium.GeoJson(aoi, name="Area of Interest").add_to(m)
+        st_folium(m, width=1100, height=500)
+    else:
+        st.warning("No AOI data available to display on the map.")
+
+
 
     if st.button("Send AOI to API (POST /input/aoi/upload)"):
         if uploaded:
@@ -93,6 +191,8 @@ if module == "Input":
             else:
                 st.json(result)
 
+
+
     st.markdown("---")
     st.subheader("INPE fire download (simulate)")
     fire_df = load_default_fire()
@@ -107,6 +207,8 @@ if module == "Input":
             st.dataframe(fire_df)
         else:
             st.json(result)
+
+
 
 # UI for Preprocessing
 if module == "Preprocessing":
@@ -137,6 +239,25 @@ if module == "Preprocessing":
             st.json(result)
 
 # UI for ETL
+if module == "ETL":
+    st.header("ETL — SICAR Extraction")
+    
+    # Sub-header conforme solicitado
+    st.subheader("SICAR/info/extract")
+    
+    # Opções baseadas no Polygon Enum do SICAR
+    info_options = ["AREA_CONSOLIDADA","CONSOLIDATED_AREA", "RESERVA_LEGAL", "AREA_IMOVEL", "VEGETACAO_NATIVA"]
+    selected_info = st.selectbox("Selecione o tipo de dado", info_options)
+    
+    if st.button("Executar Extração SICAR"):
+        # selected_state vem do seletor global que criamos anteriormente
+        payload = {"state": selected_state, "info": selected_info}
+        
+        result, ok = post_or_fallback("/etl/sicar/info/extract", json_data=payload)
+        if ok:
+            st.success(f"Extração de {selected_info} para {selected_state} enviada para a fila.")
+            st.json(result)
+
 if module == "ETL":
     st.header("ETL — Sentinel / LULC / IBGE PAM / Climate")
     st.subheader("Process Sentinel ETL")
