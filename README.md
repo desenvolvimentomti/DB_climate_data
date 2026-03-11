@@ -102,3 +102,20 @@ Visit `http://127.0.0.1:8000/docs` for interactive Swagger UI documentation.
 - PDF generation: ReportLab
 - Async file handling: aiofiles, python-multipart
 - Climate data: openmeteo-requests, requests-cache, retry-requests, tqdm
+
+
+## Inclusão modular de novas funcionalidades 
+
+-> climate_etl.py
+
+- Usa console cloude google 
+- usado para acessar dados de clima de  Earth Engine
+- extract de climate data como no código legado 
+- possivelmente poderemos usar OPENMETEO_API_URL futuramente
+
+
+-> manual_test3.py
+
+- baixar dados dos estados diretamente do Sicar para o bucket - data- lake 
+- Confirmado que funciona
+

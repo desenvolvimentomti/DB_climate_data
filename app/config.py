@@ -4,12 +4,12 @@ import os
 
 class Settings(BaseSettings):
     # Google Cloud & Earth Engine
-    # O Pydantic buscará automaticamente essas chaves no seu arquivo .env
+    # O Pydantic buscará  no .env
     gee_service_account_json_path: str = Field(validation_alias="GEE_SERVICE_ACCOUNT_JSON_PATH")
     gcp_bucket_name: str = Field(validation_alias="GCP_BUCKET_NAME")
     
     # Configurações do FastAPI
-    app_name: str = "Plataforma de Análise Climática MFLAB"
+    app_name: str = "Plataforma de Análise Climática "
     debug_mode: bool = False
 
     # Configuração para carregar o arquivo .env
