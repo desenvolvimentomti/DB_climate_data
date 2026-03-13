@@ -11,6 +11,13 @@ from shapely.geometry import shape
 import json
 from typing import Dict
 
+from dotenv import load_dotenv
+
+# Carrega as variáveis do arquivo .env
+load_dotenv()
+
+import teste_load_gis
+
 router = APIRouter(prefix="/geo", tags=["Preprocessing Module"])
 
 # Dicionário global para armazenar o status dos processos
@@ -45,11 +52,46 @@ def process_s3_zip_task(s3_path: str, state: str):
         # Procura por arquivos .shp extraídos
         for file in os.listdir(extract_path):
             if file.endswith(".shp"):
-                gdf = gpd.read_file(os.path.join(extract_path, file))
+
+
+                DB_NAME = os.getenv("DB_NAME")
+                DB_USER = os.getenv("DB_USER")
+                DB_PASSWORD = os.getenv("DB_PASSWORD")
+                DB_HOST = os.getenv("DB_HOST")
+                DB_PORT = os.getenv("DB_PORT")
+
+
+
+                shp_file_path = os.path.join(extract_path, file)
+                table_name = f"sicar_{state}_{os.path.splitext(file)[0].lower()}"
+                print(f"Processando {shp_file_path} para tabela {table_name}...")   
+
+                teste_load_gis.import_shp_to_postgis(shp_file_path, DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, table_name)
+
+
+                #gdf = gpd.read_file(os.path.join(extract_path, file))
+
+                # é possivel implementar aqui as funções que deram certo no teste_load_gis.py, seguindo a lógica de retry e limpeza de colunas do import_data.py.
+
+                # 1. Limpa os nomes das colunas (Igual ao seu import_data.py)
+               # gdf.columns = gdf.columns.str.replace(' ', '_').str.replace('(', '').str.replace(')', '').str.lower()
+
+                # 2. Garante o CRS (Sistema de Coordenadas) para o PostGIS
+                #if gdf.crs is None:
+                #    gdf.set_crs(epsg=4674, inplace=True) # Padrão SICAR (SIRGAS 2000)
+
+                # 6. Insere os dados diretamente na tabela usando to_postgis
+                # if_exists='replace' garante que a tabela seja criada/sobrescrita
+                #gdf.to_postgis(table_name, engine, if_exists='replace', index=False)
+
                 # Aqui você pode salvar no seu Banco de Dados (PostgreSQL/DuckDB)
                 # gdf.to_postgis(...) 
 
-                print(f"Processado: {file} com {len(gdf)} registros.")
+                #print(f"Processado: {file} com {len(gdf)} registros.")
+
+
+
+
         processing_status[state]["status"] = "converting"
         processing_status[state]["progress"] = 90
 

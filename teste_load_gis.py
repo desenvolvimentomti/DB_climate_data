@@ -47,7 +47,28 @@ def import_shp_to_postgis(shp_file_path, dbname, user, password, host, port, tab
 
         # 6. Insere os dados diretamente na tabela usando to_postgis
         # if_exists='replace' garante que a tabela seja criada/sobrescrita
-        gdf.to_postgis(table_name, engine, if_exists='replace', index=False)
+
+        # 6. Insere os dados em lotes (Chunks) para evitar MemoryError
+        chunk_size = 5000  # Ajuste este número se ainda der erro (ex: 2000)
+        total_rows = len(gdf)
+        print(f"Iniciando carga de {total_rows} linhas em lotes de {chunk_size}...")
+
+        for i in range(0, total_rows, chunk_size):
+            chunk = gdf.iloc[i:i + chunk_size]
+            
+            # O primeiro lote cria a tabela ('replace'), os próximos adicionam ('append')
+            mode = 'replace' if i == 0 else 'append'
+            
+            chunk.to_postgis(
+                name=table_name, 
+                con=engine, 
+                if_exists=mode, 
+                index=False
+            )
+            print(f"Progress: {min(i + chunk_size, total_rows)}/{total_rows} processados...")
+
+
+        #gdf.to_postgis(table_name, engine, if_exists='replace', index=False)
         
         print(f"Dados espaciais importados com sucesso para a tabela '{table_name}'.")
 
@@ -67,7 +88,7 @@ if __name__ == "__main__":
     DB_PORT = os.getenv("DB_PORT")
 
     # Caminho do SHP (usando o 'r' para evitar erro de barras no Windows)
-    SHP_FILE = r"data\sicar\AC\AREA_CONSOLIDADA_1.shp" # AREA_CONSOLIDADA_1.shp , AREA_IMOVEL_1.shp
-    TABLE_NAME = "sicara_ac_AREA_CONSOLIDADA_1"
+    SHP_FILE = r"data\sicar\MG\AREA_IMOVEL_1.shp" # AREA_CONSOLIDADA_1.shp , AREA_IMOVEL_1.shp
+    TABLE_NAME = "sicara_mg_AREA_IMOVEL_1"
 
     import_shp_to_postgis(SHP_FILE, DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, TABLE_NAME)

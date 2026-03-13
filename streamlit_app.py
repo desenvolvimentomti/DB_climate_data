@@ -113,6 +113,46 @@ if module == "Input":
             s3_files,
             format_func=lambda x: x.replace(f"SICAR_data/{selected_state}/", "")
             )
+
+
+
+            # aterações para comportar o Gis 
+        #col1, col2 = st.columns(2)
+
+
+        #with col1:
+        #    if st.button("🚀 1. Processar ZIP do S3"):
+        #        params = {"s3_path": selected_file, "state": selected_state}
+        #        # Dispara a extração para o computador local
+        #        result, ok = post_or_fallback("/geo/process-sicar-s3", json_data=params)
+        #        if ok:
+        #            st.success("Extração iniciada! Os arquivos serão salvos localmente.")
+        #        else:
+        #            st.error("Erro ao iniciar extração.")
+
+
+        #with col2:
+            # Caminho específico mencionado para a carga
+            # Ex: data\sicar\AC\AREA_CONSOLIDADA_1.shp
+        #    local_shp_path = rf"data\sicar\{selected_state}\AREA_CONSOLIDADA_1.shp"
+            
+        #    if st.button("📥 2. Popular PostGIS (Local)"):
+                # Define o nome da tabela no DBeaver baseado no arquivo
+        #        table_name = f"sicar_{selected_state.lower()}_area_consolidada"
+                
+        #        # Prepara o payload para um endpoint que aceite caminhos locais
+        #        # Ou envia via formulário se o endpoint upload_aoi_gis for adaptado
+        #        params = {"local_path": local_shp_path, "table_name": table_name}
+                
+        #        with st.spinner(f"Populando banco a partir de: {local_shp_path}"):
+        #            # Nota: Certifique-se de que a API tenha um endpoint para ler este path local
+        #            result, ok = post_or_fallback("/input/aoi/load-local", json_data=params)
+        #            if ok:
+        #                st.success(f"Dados enviados para a tabela '{table_name}' no DBeaver!")
+        #            else:
+        #                st.info("💡 Certifique-se de que o arquivo existe no caminho após o passo 1.")
+
+
         st.info(f"Ready to process: {selected_file}")
     else:
         st.warning(f"No data found in S3 for state {selected_state}")
@@ -172,6 +212,29 @@ if module == "Input":
 
             else:
                 st.error("Falha ao comunicar com a API de processamento.")
+
+    #st.subheader("AOI Upload & PostGIS Load")
+    #uploaded = st.file_uploader("Upload AOI (GeoJSON / Shapefile)", type=["geojson", "shp", "zip"], key="aoi")
+
+    #if uploaded:
+    #    # Se o usuário clicar no botão de enviar
+    #    if st.button("🚀 Enviar para API e Popular PostGIS"):
+    #        with st.spinner("Enviando arquivo..."):
+    #            # Prepara o arquivo para o httpx
+    #            files = {"file": (uploaded.name, uploaded.getvalue())}
+                
+    #            # Chama o endpoint corrigido /input/aoi/upload
+    #            result, ok = post_or_fallback("/input/aoi/upload", files=files)
+    #            
+    #            if ok:
+    #                st.success("Arquivo enviado com sucesso!")
+    #                st.json(result)
+    #                
+    #                # Se for um SHP, avisa que o banco está sendo populado
+    #                if uploaded.name.endswith(".shp"):
+    #                    st.info("💡 Detectado arquivo .shp. O PostGIS está sendo populado em segundo plano.")
+    #            else:
+    #                st.error(f"Erro ao processar: {result.get('error')}")
 
     st.subheader("AOI Upload")
     uploaded = st.file_uploader("Upload AOI (GeoJSON / Shapefile zip)", type=["geojson", "zip"], key="aoi")
