@@ -25,6 +25,8 @@ etl_status: Dict[str, Dict] = {}
 router = APIRouter(prefix="/etl", tags=["ETL Module"])
 
 
+# -------------EXTRACT ------------ 
+
 # --- FUNÇÃO AUXILIAR DE PROCESSAMENTO (BACKGROUND) ---
 def sicar_download_upload_task(state_code: str, info_name: str):
     task_id = f"{state_code}_{info_name}"
@@ -90,6 +92,16 @@ async def extract_sicar_info(params: SICARExtractParams, background_tasks: Backg
         "info": params.info,
         "task_id": task_id
     }
+
+
+
+# ------------- TRANSFORM & LOAD -------------
+
+
+
+
+
+
 
 
 
