@@ -19,6 +19,8 @@ from models import (
 )
 from climate_etl import extract_era5_data, download_openmeteo_data, process_climate_data
 
+from datetime import datetime
+
 # Reaproveitamos a estrutura de status  para ETL
 etl_status: Dict[str, Dict] = {}
 
@@ -35,7 +37,7 @@ def sicar_download_upload_task(state_code: str, info_name: str):
         
         # Configurações do ambiente extraídas do .env
         pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_PATH')
-        bucket_name = os.getenv('AWS_S3_BUCKET')
+        bucket_name = os.getenv('AWS_S3_BUCKET_ATUAL')
 
         # Inicializa cliente S3
         s3 = boto3.client(
@@ -56,9 +58,11 @@ def sicar_download_upload_task(state_code: str, info_name: str):
             print(f"Iniciando download SICAR: {state_code} - {info_name}")
             
             result_path = car.download_state(state=state_enum, polygon=polygon_enum, folder=temp_dir)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+
 
             if result_path:
-                object_name = f"SICAR_data/{state_code}/{info_name}.zip"
+                object_name = f"{info_name}/{state_code}/{date_str}.zip"
                 
                 # Upload para S3
                 etl_status[task_id] = {"status": "uploading_to_s3", "progress": 80}
